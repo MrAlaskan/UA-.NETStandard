@@ -218,6 +218,13 @@ namespace Opc.Ua.Server
             await m_semaphoreSlim.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                SecureChannelContext channelContext = context.ChannelContext!;
+                if (channelContext.EndpointDescription!.SecurityMode != MessageSecurityMode.None &&
+                    clientNonce.IsEmpty)
+                {
+                    throw new ServiceResultException(StatusCodes.BadNonceInvalid);
+                }
+
                 // check session count.
                 if (m_maxSessionCount > 0 && m_sessions.Count >= m_maxSessionCount)
                 {
@@ -242,7 +249,6 @@ namespace Opc.Ua.Server
                 // can assign a simple identifier if secured.
                 authenticationToken = default;
                 // CreateSession is reached only after a secure channel is bound.
-                SecureChannelContext channelContext = context.ChannelContext!;
                 if (!string.IsNullOrEmpty(channelContext.SecureChannelId) &&
                     channelContext.EndpointDescription!
                         .SecurityMode != MessageSecurityMode.None)

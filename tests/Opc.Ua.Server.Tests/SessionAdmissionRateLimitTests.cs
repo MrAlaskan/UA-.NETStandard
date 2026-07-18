@@ -109,6 +109,30 @@ namespace Opc.Ua.Server.Tests
         }
 
         [Test]
+        public void CreateSessionOnSecureEndpointRejectsEmptyClientNonce()
+        {
+            const string sessionName = nameof(CreateSessionOnSecureEndpointRejectsEmptyClientNonce);
+            EndpointDescription endpoint = FindSecureEndpoint(m_server.GetEndpoints());
+            SecureChannelContext context = CreateSecureChannelContext(sessionName, endpoint);
+
+            ServiceResultException exception = Assert.CatchAsync<ServiceResultException>(
+                async () => await m_server.CreateSessionAsync(
+                    context,
+                    new RequestHeader(),
+                    null,
+                    null,
+                    null,
+                    sessionName,
+                    default,
+                    default,
+                    ServerFixtureUtils.DefaultSessionTimeout,
+                    ServerFixtureUtils.DefaultMaxResponseMessageSize,
+                    RequestLifetime.None).ConfigureAwait(false));
+
+            Assert.That(exception.StatusCode, Is.EqualTo(StatusCodes.BadNonceInvalid));
+        }
+
+        [Test]
         public async Task ActivateSessionRejectedWithBadServerTooBusyAsync()
         {
             const string sessionName = nameof(ActivateSessionRejectedWithBadServerTooBusyAsync);
@@ -193,6 +217,16 @@ namespace Opc.Ua.Server.Tests
             endpoint.SecurityMode = MessageSecurityMode.None;
             endpoint.SecurityPolicyUri = SecurityPolicies.None;
             return endpoint;
+        }
+
+        private static EndpointDescription FindSecureEndpoint(ArrayOf<EndpointDescription> endpoints)
+        {
+            return endpoints.Find(e =>
+                    (e.TransportProfileUri.Equals(Profiles.UaTcpTransport, StringComparison.Ordinal) ||
+                     e.TransportProfileUri.Equals(Profiles.HttpsBinaryTransport, StringComparison.Ordinal)) &&
+                    e.SecurityMode == MessageSecurityMode.SignAndEncrypt &&
+                    e.SecurityPolicyUri == SecurityPolicies.Basic256Sha256)
+                ?? throw new NotSupportedException("No supported secure transport profile found.");
         }
 
         private static SecureChannelContext CreateSecureChannelContext(

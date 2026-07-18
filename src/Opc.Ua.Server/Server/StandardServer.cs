@@ -576,8 +576,15 @@ namespace Opc.Ua.Server
                     }
                 }
 
-                // verify the nonce provided by the client.
-                if (!clientNonce.IsEmpty)
+                // CreateSession on a secured channel requires a client nonce.
+                if (context.SecurityPolicyUri != SecurityPolicies.None)
+                {
+                    if (clientNonce.IsEmpty || clientNonce.Length < m_minNonceLength)
+                    {
+                        throw new ServiceResultException(StatusCodes.BadNonceInvalid);
+                    }
+                }
+                else if (!clientNonce.IsEmpty)
                 {
                     if (clientNonce.Length < m_minNonceLength)
                     {
@@ -585,10 +592,7 @@ namespace Opc.Ua.Server
                     }
 
                     // ignore nonce if security policy set to none
-                    if (context.SecurityPolicyUri == SecurityPolicies.None)
-                    {
-                        clientNonce = default;
-                    }
+                    clientNonce = default;
                 }
 
                 // load the certificate for the security profile. The session
